@@ -1,15 +1,17 @@
 {
-  "name": "sendbitcoin",
+  "name": "bitcoin",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "axios": "^0.21.1",
-    "bitcore-lib": "^8.24.1"
-  }
+    "axios": "^0.27.2",
+    "bitcore-lib": "^8.25.38",
+    "bitcore-mnemonic": "^8.25.36"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
