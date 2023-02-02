@@ -1,10 +1,10 @@
 // sending bitcoin
 const axios = require("axios");
 const bitcore = require("bitcore-lib");
+const TESTNET = true
 
 module.exports = sendBitcoin = async (recieverAddress, amountToSend) => {
   try {
-    const sochain_network = "BTCTEST";
     const privateKey =
       "6756e6564d3c74b857d5800113f35878e5a854f2fce09c780265b94e53b6bc93";
     const sourceAddress = "mvWqrftxCJa5eSKp229gkZbMf2XXrfZe9p";
@@ -12,10 +12,6 @@ module.exports = sendBitcoin = async (recieverAddress, amountToSend) => {
     let fee = 0;
     let inputCount = 0;
     let outputCount = 2;
-
-    const response = await axios.get(
-      `https://sochain.com/api/v2/get_tx_unspent/${sochain_network}/${sourceAddress}`
-    );
 
     const recommendedFee = await axios.get(
       "https://bitcoinfees.earn.com/api/v1/fees/recommended"
@@ -25,18 +21,22 @@ module.exports = sendBitcoin = async (recieverAddress, amountToSend) => {
     let totalAmountAvailable = 0;
 
     let inputs = [];
-    let utxos = response.data.data.txs;
+    const resp = await axios({
+        method: "GET",
+        url: `https://blockstream.info/testnet/api/address/${sourceAddress}/utxo`,
+    });
+    const utxos = resp.data
 
-    for (const element of utxos) {
-      let utxo = {};
-      utxo.satoshis = Math.floor(Number(element.value) * 100000000);
-      utxo.script = element.script_hex;
-      utxo.address = response.data.data.address;
-      utxo.txId = element.txid;
-      utxo.outputIndex = element.output_no;
-      totalAmountAvailable += utxo.satoshis;
+    for (const utxo of utxos) {
+      let input = {};
+      input.satoshis = utxo.value;
+      input.script = bitcore.Script.buildPublicKeyHashOut(sourceAddress).toHex();
+      input.address = sourceAddress;
+      input.txId = utxo.txid;
+      input.outputIndex = utxo.vout;
+      totalAmountAvailable += utxo.value;
       inputCount += 1;
-      inputs.push(utxo);
+      inputs.push(input);
     }
 
     /**
@@ -48,7 +48,10 @@ module.exports = sendBitcoin = async (recieverAddress, amountToSend) => {
     const transactionSize =
       inputCount * 180 + outputCount * 34 + 10 - inputCount;
 
-    fee = transactionSize * recommendedFee.data.hourFee/3; // satoshi per byte
+    fee = transactionSize * recommendedFee.data.hourFee / 3; // satoshi per byte
+    if (TESTNET) {
+      fee = transactionSize * 1 // 1 sat/byte is fine for testnet
+    }
     if (totalAmountAvailable - satoshiToSend - fee < 0) {
       throw new Error("Balance is too low for this transaction");
     }
@@ -69,16 +72,14 @@ module.exports = sendBitcoin = async (recieverAddress, amountToSend) => {
 
     // serialize Transactions
     const serializedTransaction = transaction.serialize();
-    
+
     // Send transaction
     const result = await axios({
       method: "POST",
-      url: `https://sochain.com/api/v2/send_tx/${sochain_network}`,
-      data: {
-        tx_hex: serializedTransaction,
-      },
+      url: `https://blockstream.info/testnet/api/tx`,
+      data: serializedTransaction,
     });
-    return result.data.data;
+    return result.data;
   } catch (error) {
     return error;
   }
